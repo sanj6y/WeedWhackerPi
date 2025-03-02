@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import imutils
+#import imutils
 
 # Open the webcam
 cap = cv2.VideoCapture(0)
