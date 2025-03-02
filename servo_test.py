@@ -57,7 +57,7 @@ lower_red2 = np.array([170, 150, 100], dtype="uint8")
 upper_red2 = np.array([180, 255, 255], dtype="uint8")
 
 # Motor movement functions
-def move_forward(speed=50):
+def move_forward(speed=50, duration=2):
     GPIO.output(IN1, GPIO.HIGH)
     GPIO.output(IN2, GPIO.LOW)
     GPIO.output(IN3, GPIO.HIGH)
@@ -131,7 +131,7 @@ def servo2_release():
 
 
 def detect_ball():
-    """Detects a red ball using OpenCV"""
+    """ Detects a red ball using OpenCV and saves an image if detected """
     ret, frame = cap.read()
     if not ret:
         print("Error: Cannot capture frame.")
@@ -147,18 +147,31 @@ def detect_ball():
 
     # Find contours
     cnts, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
     if len(cnts) > 0:
         cnt = max(cnts, key=cv2.contourArea)
         (x, y), radius = cv2.minEnclosingCircle(cnt)
 
-        if radius > 10:  # Only track large enough objects
-            print("Ball Detected! Moving Forward.")
+        if radius > 50:  # Only track large enough objects
+            print("Ball Detected! Stopping and capturing image.")
+
+            # Draw circle around the detected ball
+            cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 0), 3)
+
+            # Save the image
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            filename = f"ball_detected_{timestamp}.jpg"
+            cv2.imwrite(filename, frame)
+            print(f"Image saved: {filename}")
+
+            # Stop the robot
+            stop_motors()
             return True
 
     return False
 
 def search_and_follow_ball():
-    """ Continuously searches for the ball in 4 steps, moves forward if detected """
+    """ Rotates in steps, moves forward if ball detected, and captures an image """
     try:
         while True:
             ball_found = False  # Reset detection flag
@@ -166,13 +179,12 @@ def search_and_follow_ball():
             # Rotate 360° in 4 quarters (90° each)
             for _ in range(6):
                 print("Turning to search for ball...")
-                move_forward(speed=10)  # Rotate 60
-  
+                time.sleep(2)  # Simulating slow movement
+                move_forward(0.35,0.35)
 
                 # Check if ball is detected
                 if detect_ball():
                     print("Ball Detected! Moving forward.")
-                    turn_right(speed=10)  # Move toward the ball
                     time.sleep(2)  # Move for 2 seconds
                     stop_motors()  # Stop after moving
                     ball_found = True
