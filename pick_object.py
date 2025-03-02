@@ -1,50 +1,38 @@
+from pynput import keyboard
 import pigpio
 import time
 
-def smooth_move(servo, start, end, step=10, delay=0.02):
-    """ Gradually moves servo from start to end. """
-    if start < end:  # Moving up
-        for pulse in range(start, end + 1, step):
-            pi.set_servo_pulsewidth(servo, pulse)
-            time.sleep(delay)
-    else:  # Moving down
-        for pulse in range(start, end - 1, -step):
-            pi.set_servo_pulsewidth(servo, pulse)
-            time.sleep(delay)
-
-
-# Initialize pigpio
-##def pick_up_item(): 
 pi = pigpio.pi()
 if not pi.connected:
     print("Failed to connect to pigpio daemon.")
     exit()
 
-# Define GPIO pins
-SERVO_PIN_1 = 12  # GPIO 12
 SERVO_PIN_2 = 13  # GPIO 13
+UP_POSITION = 2000
+DOWN_POSITION = 1000
+NEUTRAL_POSITION = 1500
 
-pi.set_servo_pulsewidth(12, 1000)
-pi.set_servo_pulsewidth(13, 500)
-"""
-# Set frequency (50Hz for servos)
-pi.set_PWM_frequency(SERVO_PIN_1, 50)
-pi.set_PWM_frequency(SERVO_PIN_2, 50)
+pi.set_servo_pulsewidth(SERVO_PIN_2, NEUTRAL_POSITION)
 
-print("Opening Servo 2 (GPIO 13) to 180 degrees")
-smooth_move(SERVO_PIN_2, 1000, 2000)
+def on_press(key):
+    try:
+        if key.char == '1':  # Move up
+            print("Moving UP...")
+            pi.set_servo_pulsewidth(SERVO_PIN_2, UP_POSITION)
+        elif key.char == '2':  # Move down
+            print("Moving DOWN...")
+            pi.set_servo_pulsewidth(SERVO_PIN_2, DOWN_POSITION)
+    except AttributeError:
+        pass
 
-# Step 2: Move Servo 1 down smoothly (180 degrees)
-print("Moving Servo 1 (GPIO 12) down to 180 degrees")
-smooth_move(SERVO_PIN_1, 1000, 2000)
+def on_release(key):
+    pi.set_servo_pulsewidth(SERVO_PIN_2, NEUTRAL_POSITION)  # Reset when key is released
+    if key == keyboard.Key.esc:  # Exit on Esc key
+        return False
 
-# Step 3: Close Servo 2 smoothly (0 degrees)
-print("Closing Servo 2 (GPIO 13) to 0 degrees")
-smooth_move(SERVO_PIN_2, 2000, 1000)
+print("Press '1' to move UP, '2' to move DOWN. Release to stop.")
+with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
+    listener.join()
 
-# Step 4: Move Servo 1 up smoothly (0 degrees)
-print("Moving Servo 1 (GPIO 12) up to 0 degrees")
-smooth_move(SERVO_PIN_1, 2000, 1000)
-*/
-
-"""
+pi.set_servo_pulsewidth(SERVO_PIN_2, 0)  # Turn off servo
+pi.stop()
