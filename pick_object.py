@@ -7,6 +7,7 @@ if not pi.connected:
     print("Failed to connect to pigpio daemon.")
     exit()
 
+SERVO_PIN_1 = 12
 SERVO_PIN_2 = 13  # GPIO 13
 UP_POSITION = 2000
 DOWN_POSITION = 1000
@@ -15,7 +16,7 @@ NEUTRAL_POSITION = 1500
 pi.set_servo_pulsewidth(SERVO_PIN_2, NEUTRAL_POSITION)
 pi.set_servo_pulsewidth(13, 1000)
 pi.set_servo_pulsewidth(13, 2500)
-"""
+
 # Set frequency (50Hz for servos)
 pi.set_PWM_frequency(SERVO_PIN_1, 50)
 pi.set_PWM_frequency(SERVO_PIN_2, 50)
@@ -42,4 +43,6 @@ with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
 
 pi.set_servo_pulsewidth(SERVO_PIN_2, 0)  # Turn off servo
 pi.stop()
-"""
+
+
+scan_fo
