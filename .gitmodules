@@ -1,0 +1,3 @@
+[submodule "Freenove_Tank_Robot_Kit_for_Raspberry_Pi"]
+	path = Freenove_Tank_Robot_Kit_for_Raspberry_Pi
+	url = https://github.com/Freenove/Freenove_Tank_Robot_Kit_for_Raspberry_Pi
