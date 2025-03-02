@@ -4,10 +4,10 @@ import RPi.GPIO as GPIO
 import time
 
 # Define motor control pins
-MOTOR_LEFT_FORWARD = 17
-MOTOR_LEFT_BACKWARD = 18
-MOTOR_RIGHT_FORWARD = 22
-MOTOR_RIGHT_BACKWARD = 23
+MOTOR_LEFT_FORWARD = 23
+MOTOR_LEFT_BACKWARD = 24
+MOTOR_RIGHT_FORWARD = 5
+MOTOR_RIGHT_BACKWARD = 6
 ENA = 25  # Left motor enable (PWM)
 ENB = 26  # Right motor enable (PWM)
 
@@ -40,24 +40,43 @@ if not cap.isOpened():
 
 print("Searching for the ball...")
 
-def turn_robot(speed=30):
-    """Turns the robot incrementally"""
+def move_forward(speed=10, duration=0.3):
+    """Turns the robot for a short duration, then stops"""
     GPIO.output(MOTOR_LEFT_FORWARD, GPIO.HIGH)
     GPIO.output(MOTOR_LEFT_BACKWARD, GPIO.LOW)
     GPIO.output(MOTOR_RIGHT_FORWARD, GPIO.LOW)
     GPIO.output(MOTOR_RIGHT_BACKWARD, GPIO.HIGH)  # One wheel forward, one backward
     pwm_left.ChangeDutyCycle(speed)
     pwm_right.ChangeDutyCycle(speed)
-    time.sleep(0.5)  # Incremental turn delay
+    time.sleep(duration)  # Turn for 0.3 seconds
+    stop_robot()  # Stop after turning
+
+def turn_robot(speed=10, duration=0.3):
+    """Moves the robot forward in increments, then stops"""
+    print(f"Moving forward for {duration} seconds...")
+    GPIO.output(MOTOR_LEFT_FORWARD, GPIO.HIGH)
+    GPIO.output(MOTOR_LEFT_BACKWARD, GPIO.LOW)
+    GPIO.output(MOTOR_RIGHT_FORWARD, GPIO.HIGH)
+    GPIO.output(MOTOR_RIGHT_BACKWARD, GPIO.LOW)
+
+    pwm_left.ChangeDutyCycle(speed)
+    pwm_right.ChangeDutyCycle(speed)
+    
+    time.sleep(duration)  # Move forward for a short time
+    stop_robot()  # Stop after each movement
 
 def stop_robot():
     """Stops the robot"""
+    print("Stopping motors...")
     GPIO.output(MOTOR_LEFT_FORWARD, GPIO.LOW)
     GPIO.output(MOTOR_LEFT_BACKWARD, GPIO.LOW)
     GPIO.output(MOTOR_RIGHT_FORWARD, GPIO.LOW)
     GPIO.output(MOTOR_RIGHT_BACKWARD, GPIO.LOW)
     pwm_left.ChangeDutyCycle(0)
     pwm_right.ChangeDutyCycle(0)
+    print("Robot stopped.")
+
+ball_was_detected = False  # Track if we found the ball at least once
 
 try:
     while True:
@@ -100,21 +119,31 @@ try:
                     cv2.circle(frame, (int(x), int(y)), 5, (255, 0, 0), -1)  # Draw center
                     print(f"Ball detected at: (x={int(x)}, y={int(y)}, radius={int(radius)})")
                     ball_detected = True
+                    ball_was_detected = True  # Mark that we found the ball
                     break  # Stop checking once a ball is found
 
-        if ball_detected:
-            print("Ball found! Stopping...")
-            stop_robot()
+        if ball_was_detected:
+            if ball_detected:
+                print("Ball found! Moving forward in increments...")
+                move_forward(speed=20, duration=0.3)  # Move forward for 0.3 seconds
+                
+            else:
+                print("Ball lost. Stopping permanently.")
+                stop_robot()
+                break  # **Exit the loop permanently after stopping**
+
         else:
             print("Ball not found. Turning...")
-            turn_robot(speed=30)  # Adjust speed as needed
+            turn_robot(speed=5, duration=0.3)  # **Turn for 0.3 seconds, then stop**
+            time.sleep(1)  # Small delay to allow camera processing
 
         # **Show camera feed**
         cv2.imshow("Live Camera Feed", frame)  # Shows what the camera sees
         cv2.imshow("Mask (Ball Detection)", mask)  # Shows ball tracking mask
 
         # Exit on 'q' key
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
             print("Exiting...")
             break
 
