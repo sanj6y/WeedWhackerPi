@@ -3,7 +3,7 @@ import numpy as np
 import imutils
 
 # Open the webcam
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
 # Define HSV range for RED (Two ranges due to wrap-around in HSV)
 lower_red1 = np.array([0, 150, 100], dtype="uint8")
