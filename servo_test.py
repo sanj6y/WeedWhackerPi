@@ -111,13 +111,13 @@ def find_ball_and_follow():
 
                     if center_x < frame_center - 50:  # Ball is on the left
                         print("Ball detected on LEFT → Turning Left")
-                        turn_left(speed=20)
+                        move_forward(speed=15)
                     elif center_x > frame_center + 50:  # Ball is on the right
                         print("Ball detected on RIGHT → Turning Right")
-                        turn_right(speed=15)
+                        move_backward(speed=15)
                     else:  # Ball is centered
                         print("Ball centered → Moving Forward")
-                        move_forward(speed=15)
+                        turn_right(speed=15)
 
             else:
                 print("No ball detected → Stopping")
@@ -145,22 +145,22 @@ try:
         command = input("Enter command (w: forward, s: backward, a: left, d: right, x: stop, e: follow ball, q: quit): ").strip().lower()
         if command == 'w':
             print("Moving forward...")
-            move_forward(speed=20)
+            turn_right(speed=20)
         elif command == 's':
             print("Moving backward...")
-            move_backward(speed=20)
+            turn_left(speed=20)
         elif command == 'a':
             print("Turning left...")
-            turn_left(speed=20)
+            move_backward(speed=20)
         elif command == 'd':
             print("Turning right...")
-            turn_right(speed=20)
+            move_forward(speed=20)
         elif command == 'x':
             print("Stopping...")
             stop_motors()
         elif command == 'e':
             print("Starting ball following mode...")
-            find_ball_and_follow()
+            find_ball_and_follow()()
         elif command == 'q':
             print("Exiting program.")
             break
