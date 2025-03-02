@@ -4,6 +4,7 @@ import numpy as np
 import imutils
 import time
 
+duration = 2
 # GPIO pin assignments for Motor 1 (left side)
 IN1 = 23  # GPIO pin for Motor 1 direction
 IN2 = 24  # GPIO pin for Motor 1 direction
@@ -14,6 +15,12 @@ IN3 = 5   # GPIO pin for Motor 2 direction
 IN4 = 6   # GPIO pin for Motor 2 direction
 ENB = 26  # GPIO pin for Motor 2 enable (PWM)
 
+
+SERVO1 = 13  # Servo for Up/Down movement
+SERVO2 = 12  # Servo for Collect/Not Collect
+
+
+
 # Setup GPIO
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(IN1, GPIO.OUT, initial=GPIO.LOW)
@@ -23,14 +30,25 @@ GPIO.setup(IN3, GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(IN4, GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(ENB, GPIO.OUT, initial=GPIO.LOW)
 
+GPIO.setup(SERVO1, GPIO.OUT)
+GPIO.setup(SERVO2, GPIO.OUT)
+
+
 # Initialize PWM on ENA and ENB with 100Hz frequency
 pwm1 = GPIO.PWM(ENA, 100)
 pwm2 = GPIO.PWM(ENB, 100)
 pwm1.start(0)
 pwm2.start(0)
 
+# Initialize PWM for Servos (50Hz frequency)
+servo1 = GPIO.PWM(SERVO1, 50)  # Servo 1 (Up/Down)
+servo2 = GPIO.PWM(SERVO2, 50)  # Servo 2 (Collect/Not Collect)
+# servo1.start(7.5)  # Neutral position
+# servo2.start(7.5)  # Neutral position
+
 # Open webcam for tracking
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+
 
 # Define HSV range for red ball
 lower_red1 = np.array([0, 150, 100], dtype="uint8")
@@ -46,6 +64,8 @@ def move_forward(speed=50):
     GPIO.output(IN4, GPIO.LOW)
     pwm1.ChangeDutyCycle(speed)
     pwm2.ChangeDutyCycle(speed)
+    time.sleep(duration)
+    stop_motors()
 
 def move_backward(speed=50):
     GPIO.output(IN1, GPIO.LOW)
@@ -54,6 +74,8 @@ def move_backward(speed=50):
     GPIO.output(IN4, GPIO.HIGH)
     pwm1.ChangeDutyCycle(speed)
     pwm2.ChangeDutyCycle(speed)
+    time.sleep(duration)
+    stop_motors()
 
 def turn_left(speed=50):
     GPIO.output(IN1, GPIO.LOW)
@@ -62,6 +84,10 @@ def turn_left(speed=50):
     GPIO.output(IN4, GPIO.LOW)
     pwm1.ChangeDutyCycle(speed)
     pwm2.ChangeDutyCycle(speed)
+    time.sleep(duration)
+    stop_motors()
+    time.sleep(duration)
+    stop_motors()
 
 def turn_right(speed=50):
     GPIO.output(IN1, GPIO.HIGH)
@@ -70,6 +96,8 @@ def turn_right(speed=50):
     GPIO.output(IN4, GPIO.HIGH)
     pwm1.ChangeDutyCycle(speed)
     pwm2.ChangeDutyCycle(speed)
+    time.sleep(duration)
+    stop_motors()
 
 def stop_motors():
     GPIO.output(IN1, GPIO.LOW)
@@ -79,65 +107,87 @@ def stop_motors():
     pwm1.ChangeDutyCycle(0)
     pwm2.ChangeDutyCycle(0)
 
-def find_ball_and_follow():
-    """
-    Uses OpenCV to detect a red ball and move the robot towards it.
-    """
+
+# Servo control functions
+def servo1_up():
+    """ Move Servo 1 (Up) """
+    print("Servo 1 Moving UP")
+    servo1.ChangeDutyCycle(12.5)  # Adjust angle
+
+def servo1_down():
+    """ Move Servo 1 (Down) """
+    print("Servo 1 Moving DOWN")
+    servo1.ChangeDutyCycle(2.5)  # Adjust angle
+
+def servo2_collect():
+    """ Activate Collect Mechanism """
+    print("Servo 2 Collecting")
+    servo2.ChangeDutyCycle(12.5)  # Adjust angle
+
+def servo2_release():
+    """ Deactivate Collect Mechanism """
+    print("Servo 2 Releasing")
+    servo2.ChangeDutyCycle(2.5)  # Adjust angle
+
+
+def detect_ball():
+    """Detects a red ball using OpenCV"""
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Cannot capture frame.")
+        return False
+
+    frame = imutils.resize(frame, width=600)
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Create masks for red ball
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    mask = cv2.bitwise_or(mask1, mask2)
+
+    # Find contours
+    cnts, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if len(cnts) > 0:
+        cnt = max(cnts, key=cv2.contourArea)
+        (x, y), radius = cv2.minEnclosingCircle(cnt)
+
+        if radius > 10:  # Only track large enough objects
+            print("Ball Detected! Moving Forward.")
+            return True
+
+    return False
+
+def search_and_follow_ball():
+    """ Continuously searches for the ball in 4 steps, moves forward if detected """
     try:
         while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("Error: Cannot capture frame.")
-                break
+            ball_found = False  # Reset detection flag
 
-            frame = imutils.resize(frame, width=600)
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            # Rotate 360° in 4 quarters (90° each)
+            for _ in range(6):
+                print("Turning to search for ball...")
+                move_forward(speed=10)  # Rotate 60
+  
 
-            # Create masks for red ball
-            mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-            mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-            mask = cv2.bitwise_or(mask1, mask2)
+                # Check if ball is detected
+                if detect_ball():
+                    print("Ball Detected! Moving forward.")
+                    turn_right(speed=10)  # Move toward the ball
+                    time.sleep(2)  # Move for 2 seconds
+                    stop_motors()  # Stop after moving
+                    ball_found = True
+                    break  # Stop rotating and move towards the ball
 
-            # Find contours
-            cnts, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if len(cnts) > 0:
-                # Get the largest contour
-                cnt = max(cnts, key=cv2.contourArea)
-                (x, y), radius = cv2.minEnclosingCircle(cnt)
-
-                if radius > 10:  # Only track objects that are large enough
-                    center_x = int(x)
-                    frame_center = frame.shape[1] // 2  # Get center of the frame
-
-                    if center_x < frame_center - 50:  # Ball is on the left
-                        print("Ball detected on LEFT → Turning Left")
-                        move_forward(speed=15)
-                    elif center_x > frame_center + 50:  # Ball is on the right
-                        print("Ball detected on RIGHT → Turning Right")
-                        move_backward(speed=15)
-                    else:  # Ball is centered
-                        print("Ball centered → Moving Forward")
-                        turn_right(speed=15)
-
-            else:
-                print("No ball detected → Stopping")
-                stop_motors()
-
-            # Display video feed
-            cv2.imshow("Ball Tracking", frame)
-            cv2.imshow("Mask", mask)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                print("Exiting ball tracking mode.")
-                break
+            if not ball_found:
+                print("No ball detected. Restarting search...")
 
     except KeyboardInterrupt:
         print("Exiting ball tracking mode.")
-
     finally:
         stop_motors()
-        cap.release()
-        cv2.destroyAllWindows()
+
+
+
 
 # Main control loop
 try:
@@ -158,14 +208,22 @@ try:
         elif command == 'x':
             print("Stopping...")
             stop_motors()
-        elif command == 'e':
-            print("Starting ball following mode...")
-            find_ball_and_follow()()
-        elif command == 'q':
+        elif command == 'u':  # Servo 1 Up
+            servo1_up()
+        elif command == 'l':  # Servo 1 Down
+            servo1_down()
+        elif command == 'c':  # Servo 2 Collect
+            servo2_collect()
+        elif command == 'r':  # Servo 2 Release
+            servo2_release()
+        elif command == 'q':  # Quit
             print("Exiting program.")
             break
+        elif command == 'e':  # Quit
+            print("atoumus  mode.")
+            search_and_follow_ball()
         else:
-            print("Invalid command. Please enter 'w', 's', 'a', 'd', 'x', 'e', or 'q'.")
+            print("Invalid command.")
 
 except KeyboardInterrupt:
     print("Program interrupted by user.")
